@@ -1,0 +1,7 @@
+:root { color-scheme: dark; background: #000000; color: #ffffff; font: 18px/1.5 sans-serif; }
+body { margin: 0; padding: 20px; }
+h1 { font-size: 24px; }
+nav { display: flex; flex-wrap: wrap; gap: 12px; }
+a, button { display: inline-block; padding: 10px; color: #ffffff; background: #000000; border: 1px solid #ffffff; font: inherit; }
+a:focus-visible, button:focus-visible { outline: 3px solid #ffffff; outline-offset: 3px; }
+pre { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 13px; }
