@@ -1,0 +1,9 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#000000">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; base-uri 'none'; form-action 'none'">
+<title>PianoLens rectangle connection</title><link rel="stylesheet" href="report.css"></head>
+<body><h1>Rectangle connection test</h1><p>Use the endpoint and temporary token shown in Android. This controls only the rectangle.</p>
+<label>Phone WebSocket endpoint <input id="endpoint" type="url" value="ws://127.0.0.1:8765/rectangle"></label>
+<label>Temporary pairing token <input id="token" type="password" autocomplete="off" maxlength="32"></label>
+<button id="connect">Open controlled rectangle</button><p id="error" role="status"></p><a href="index.html">Run independent animation</a>
+<script type="module" src="pair.js"></script></body></html>
