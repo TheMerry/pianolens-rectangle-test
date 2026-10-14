@@ -1,6 +1,6 @@
 // Pure timing helpers: no Android, music, MIDI, microphone, or communication code.
-export const BUILD = 'rectangle-A1';
-export const REPORT_KEY = 'pianolens.rectangle.A1.lastReport';
+export const BUILD = 'rectangle-B1';
+export const REPORT_KEY = 'pianolens.rectangle.B1.lastReport';
 export const WARMUP_MS = 2000;
 
 export function rectangleAt(elapsedMs) {
