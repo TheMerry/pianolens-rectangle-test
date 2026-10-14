@@ -7,7 +7,7 @@ document.getElementById('summary').textContent = report ? `${report.measuredVisi
 document.getElementById('download').disabled = !report;
 document.getElementById('download').addEventListener('click', () => {
   const url = URL.createObjectURL(new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' }));
-  const link = document.createElement('a'); link.href = url; link.download = 'pianolens-rectangle-A1.json'; link.click();
+  const link = document.createElement('a'); link.href = url; link.download = 'pianolens-rectangle-B1.json'; link.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 });
 document.querySelector('a').focus();
