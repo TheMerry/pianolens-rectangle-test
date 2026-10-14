@@ -19,13 +19,13 @@ export function rectangleConnection() {
   } catch { config = null; event('invalid or unavailable configuration'); }
   if (config) report.route = config.endpoint; // Never include pairing tokens in reports.
   function clearTimers() { clearTimeout(deadline); clearTimeout(retry); deadline = retry = null; pings.clear(); }
-  function suspend() { clearTimers(); clock.freeze(performance.now()); const old = socket; socket = null; old?.close(1000, 'surface hidden or closed'); }
+  function suspend() { clearTimers(); clock.freeze(performance.now()); const old = socket; socket = null; old?.close(1000, 'surface hidden or closed'); event('suspended; rectangle frozen'); }
   function connect() {
     if (disposed || document.hidden || !config || socket) return;
     report.attempts++; event('connecting');
     let ws; try { ws = new WebSocket(config.endpoint); } catch (error) { event(`browser refused connection (${error.name})`); return; }
     socket = ws; offset = null;
-    deadline = setTimeout(() => { if (socket === ws && report.status !== 'connected') { event('connection/authentication timeout'); ws.close(); } }, 5000);
+    deadline = setTimeout(() => { if (socket === ws && report.status !== 'connected') { event('connection/authentication timeout'); ws.close(); } }, 10000);
     ws.onopen = () => ws.send(JSON.stringify({ type: 'hello', v: 1, token: config.token }));
     ws.onmessage = ({ data }) => {
       if (socket !== ws || typeof data !== 'string' || data.length > 4096) return;
