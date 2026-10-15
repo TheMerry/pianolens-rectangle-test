@@ -22,10 +22,10 @@ async function body(req){
   let size=0;const parts=[];for await(const part of req){size+=part.length;if(size>MAX_BODY)throw new HttpError(413,'MIDI exceeds 5 MB');parts.push(part);}
   try{return JSON.parse(Buffer.concat(parts).toString('utf8'));}catch{throw new HttpError(400,'Invalid upload');}
 }
-export async function createLibraryServer({file,host='127.0.0.1',port=0,origins=['https://pianolens-standalone.onrender.com'],limits,createLimit=10,createKey,validateMidi=validate}={}){
-  if(!file)throw Error('Explicit persistent database file required');
+export async function createLibraryServer({file,store:providedStore,host='127.0.0.1',port=0,origins=['https://pianolens-standalone.onrender.com'],limits,createLimit=10,createKey,validateMidi=validate}={}){
+  if(!file&&!providedStore)throw Error('Explicit database store required');
   if(createKey&&!/^[a-f0-9]{64}$/.test(createKey))throw Error('Invalid private setup key');
-  const store=new LibraryStore(file,limits),allowed=new Set(origins);let active=0,createAt=Date.now(),creates=0;
+  const store=providedStore||new LibraryStore(file,limits),allowed=new Set(origins);let active=0,createAt=Date.now(),creates=0;
   const server=http.createServer(async(req,res)=>{
     const reply=(code,value)=>{res.writeHead(code,{'Content-Type':'application/json','Cache-Control':'no-store','X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer'});res.end(JSON.stringify(value));};
     try{
@@ -38,13 +38,13 @@ export async function createLibraryServer({file,host='127.0.0.1',port=0,origins=
         const supplied=req.headers['x-pianolens-setup'];
         if(createKey&&(typeof supplied!=='string'||!/^[a-f0-9]{64}$/.test(supplied)||!timingSafeEqual(Buffer.from(supplied),Buffer.from(createKey))))throw new HttpError(401,'Open your private setup link to create a library');
         if(Date.now()-createAt>3600000){createAt=Date.now();creates=0;}if(++creates>createLimit)throw new HttpError(429,'Please wait before creating another library');
-        reply(201,store.create());return;
+        reply(201,await store.create());return;
       }
       const match=/^\/api\/libraries\/([a-f0-9]{32})\/songs(?:\/([a-f0-9]{32}))?$/.exec(req.url||'');
       if(!match)throw new HttpError(404,'Not found');
       const [,libraryId,songId]=match,token=/^Bearer ([a-f0-9]{64})$/.exec(req.headers.authorization||'')?.[1];
-      store.authorize(libraryId,token,req.method!=='GET');
-      if(req.method==='GET'){reply(200,songId?store.song(libraryId,songId):{songs:store.list(libraryId)});return;}
+      await store.authorize(libraryId,token,req.method!=='GET');
+      if(req.method==='GET'){reply(200,songId?await store.song(libraryId,songId):{songs:await store.list(libraryId)});return;}
       if(req.method!=='POST'||songId)throw new HttpError(405,'Method not allowed');
       if(active>=2)throw new HttpError(429,'Another upload is being checked; try again shortly');
       active++;
@@ -56,7 +56,7 @@ export async function createLibraryServer({file,host='127.0.0.1',port=0,origins=
         if(bytes.toString('base64')!==data.midi)throw new HttpError(400,'Invalid MIDI encoding');
         if(bytes.length>MAX_FILE)throw new HttpError(413,'MIDI exceeds 5 MB');
         if(bytes.length<14||bytes.subarray(0,4).toString('ascii')!=='MThd')throw new HttpError(422,'Choose a standard .mid or .midi file');
-        const summary=await validateMidi(bytes),result=store.add(libraryId,data.title.trim(),bytes,summary);
+        const summary=await validateMidi(bytes),result=await store.add(libraryId,data.title.trim(),bytes,summary);
         reply(result.duplicate?200:201,{...result,...summary});
       }finally{active--;}
     }catch(error){if(!res.writableEnded)reply(error instanceof HttpError?error.status:500,{error:error instanceof HttpError?error.message:'Library service unavailable'});}
@@ -64,14 +64,20 @@ export async function createLibraryServer({file,host='127.0.0.1',port=0,origins=
   server.requestTimeout=20000;server.headersTimeout=10000;
   server.maxConnections=64;
   await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(port,host,resolve);});
-  return {server,url:`http://127.0.0.1:${server.address().port}`,async close(){await new Promise(resolve=>server.close(resolve));store.close();}};
+  return {server,url:`http://127.0.0.1:${server.address().port}`,async close(){await new Promise(resolve=>server.close(resolve));await store.close();}};
 }
 if(process.argv[1]===fileURLToPath(import.meta.url)){
-  // Refuse an implicit ephemeral fallback. Deployment must explicitly mount this directory.
-  const directory=process.env.PIANOLENS_DATA_DIR;if(!directory)throw Error('Set PIANOLENS_DATA_DIR to the persistent disk mount');
+  // Hosted deployments use external durable storage, never Render's ephemeral disk.
+  // Explicit SQLite paths remain available for local development and existing tests.
+  const directory=process.env.PIANOLENS_DATA_DIR,connection=process.env.DATABASE_URL;
+  if(!connection&&!directory)throw Error('Set DATABASE_URL for free persistent storage');
   const createKey=process.env.PIANOLENS_CREATE_KEY;if(!/^[a-f0-9]{64}$/.test(createKey||''))throw Error('Set a private 256-bit PIANOLENS_CREATE_KEY');
-  await mkdir(directory,{recursive:true});
-  const service=await createLibraryServer({file:path.join(directory,'library.sqlite'),host:'0.0.0.0',port:Number(process.env.PORT||8790),createKey,origins:(process.env.PIANOLENS_ORIGINS||'https://pianolens-standalone.onrender.com').split(',')});
+  let store;
+  if(connection){
+    try{const {openNeonStore}=await import('./postgres-store.mjs');store=await openNeonStore(connection);}
+    catch{console.error('Persistent database unavailable; verify the Neon connection in server settings.');process.exit(1);}
+  }else await mkdir(directory,{recursive:true});
+  const service=await createLibraryServer({store,file:store?undefined:path.join(directory,'library.sqlite'),host:'0.0.0.0',port:Number(process.env.PORT||8790),createKey,origins:(process.env.PIANOLENS_ORIGINS||'https://pianolens-standalone.onrender.com').split(',')});
   console.log('PianoLens MIDI library ready'); // Never log credentials, URLs, MIDI contents or names.
   for(const signal of ['SIGINT','SIGTERM'])process.once(signal,async()=>{await service.close();process.exit(0);});
 }
