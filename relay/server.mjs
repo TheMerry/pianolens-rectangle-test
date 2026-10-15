@@ -4,6 +4,7 @@ import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { WebSocketServer, WebSocket } from 'ws';
 import { CommandClock } from './commands.js';
+import {validLessonPacket} from './lesson.js';
 
 const alphabet='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const token=()=>randomBytes(32).toString('hex');
@@ -18,8 +19,9 @@ export async function createRelay({port=0,host='127.0.0.1',pairMs=120000,roomMs=
   function remove(room){rooms.delete(room.id);if(room.code)codes.delete(room.code);for(const role of ['viewer','controller'])room[role]?.close(4008,'Pairing expired; pair again');}
   const server=http.createServer(async(req,res)=>{
     const path=new URL(req.url,'http://localhost').pathname;
-    if(path==='/health'){res.writeHead(200,{'Content-Type':'application/json','Cache-Control':'no-store'});res.end('{"ok":true,"build":"rectangle-relay-B2"}');return;}
+    if(path==='/health'){res.writeHead(200,{'Content-Type':'application/json','Cache-Control':'no-store'});res.end('{"ok":true,"build":"hybrid-piano-C1"}');return;}
     const files={'/':['./index.html','text/html'],'/index.html':['./index.html','text/html'],'/viewer.js':['./viewer.js','text/javascript'],
+      '/piano':['./piano.html','text/html'],'/piano.html':['./piano.html','text/html'],'/piano.js':['./piano.js','text/javascript'],
       '/commands.js':['./commands.js','text/javascript'],'/timing.js':['./timing.js','text/javascript']};
     if(req.method!=='GET'||!files[path]){res.writeHead(404);res.end();return;}
     try{const [file,mime]=files[path];const bytes=await readFile(new URL(file,import.meta.url));res.writeHead(200,{'Content-Type':mime,'Cache-Control':'no-store','X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer',
@@ -45,13 +47,14 @@ export async function createRelay({port=0,host='127.0.0.1',pairMs=120000,roomMs=
         if(m.type==='create'){
           if(rooms.size>=32){ws.close(1013,'Capacity; try later');return;}
           let pairCode;do{pairCode=code();}while(codes.has(pairCode));
-          room={id:randomBytes(16).toString('hex'),code:pairCode,created:Date.now(),last:Date.now(),paired:false,viewerSecret:token(),controllerSecret:token(),viewer:ws,controller:null};
+          if(m.kind!==undefined&&!['piano','rectangle'].includes(m.kind)){ws.close(4004,'Unknown renderer');return;}
+          room={id:randomBytes(16).toString('hex'),kind:m.kind||'rectangle',code:pairCode,created:Date.now(),last:Date.now(),paired:false,viewerSecret:token(),controllerSecret:token(),viewer:ws,controller:null};
           role='viewer';rooms.set(room.id,room);codes.set(pairCode,room);
           send(ws,{type:'created',roomId:room.id,secret:room.viewerSecret,code:pairCode,expiresInMs:pairMs});
         }else if(m.type==='join'){
           if(Date.now()-attemptWindow>60000){attemptWindow=Date.now();joins=0;}if(++joins>60){ws.close(4003,'Pairing rate limit');return;}
           const candidate=codes.get(normalCode(m.code));
-          if(!candidate||Date.now()-candidate.created>pairMs||candidate.controller){ws.close(4003,'Invalid or expired code');return;}
+          if(!candidate||Date.now()-candidate.created>pairMs||candidate.controller||candidate.kind!==(m.kind||'rectangle')){ws.close(4003,'Invalid or expired code, or wrong renderer');return;}
           room=candidate;role='controller';room.controller=ws;room.paired=true;codes.delete(room.code);room.code=null;
           send(ws,{type:'joined',roomId:room.id,secret:room.controllerSecret});
         }else if(m.type==='reconnect'){
@@ -66,12 +69,12 @@ export async function createRelay({port=0,host='127.0.0.1',pairMs=120000,roomMs=
       }
       room.last=Date.now();
       if(role==='viewer'){
-        const valid=(m.type==='ping'&&typeof m.id==='string'&&m.id.length<=40)||m.type==='snapshot'||(m.type==='ack'&&Number.isSafeInteger(m.revision)&&m.revision>=0);
+        const valid=(m.type==='ping'&&typeof m.id==='string'&&m.id.length<=40)||m.type==='snapshot'||(room.kind==='rectangle'&&m.type==='ack'&&Number.isSafeInteger(m.revision)&&m.revision>=0)||(room.kind==='piano'&&m.type==='lessonAck'&&Number.isSafeInteger(m.packetId)&&m.packetId>0);
         if(!valid){ws.close(4004,'Viewer operation denied');return;}
         if(!room.controller){send(ws,{type:'peerDisconnected'});return;}
         send(room.controller,m);
       }else{
-        const valid=(types.has(m.type)&&new CommandClock().apply(m,0))||(m.type==='pong'&&typeof m.id==='string'&&m.id.length<=40&&Number.isFinite(m.serverUnixMs));
+        const valid=(room.kind==='piano'?validLessonPacket(m):(types.has(m.type)&&new CommandClock().apply(m,0)))||(m.type==='pong'&&typeof m.id==='string'&&m.id.length<=40&&Number.isFinite(m.serverUnixMs));
         if(!valid){ws.close(4004,'Controller operation denied');return;}
         send(room.viewer,m);
       }
