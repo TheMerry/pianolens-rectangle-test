@@ -78,7 +78,7 @@ function chooseWindow(pitches, previous, required = []) {
   return whitePitches[best];
 }
 function planWindows(notes, groups) {
-  if (!notes.length) return [{ at: -Infinity, low: 48 }];
+  if (!notes.length) return [{ at: -Infinity, low: 48, forGroup: 0 }];
   const byGroup = groups.map(() => []);
   for (const n of notes) byGroup[n[4]]?.push(n);
   const upcoming = (i) => {
@@ -90,7 +90,7 @@ function planWindows(notes, groups) {
     return pitches;
   };
   let low = chooseWindow(upcoming(0), void 0, byGroup[0]?.map((n) => n[0]) ?? []), heldEnd = 0;
-  const plan = [{ at: -Infinity, low }];
+  const plan = [{ at: -Infinity, low, forGroup: 0 }];
   for (let i = 0; i < groups.length; i++) {
     const current = byGroup[i], high = visibleKeys(low).at(-1).pitch;
     if (current.some((n) => n[0] < low || n[0] > high)) {
@@ -104,7 +104,7 @@ function planWindows(notes, groups) {
         }
         const safeAt = Math.max(plan.at(-1).at, at);
         if (plan.at(-1).at === safeAt) plan.pop();
-        plan.push({ at: safeAt, low: next });
+        plan.push({ at: safeAt, low: next, forGroup: i });
         low = next;
       }
     }
@@ -112,9 +112,9 @@ function planWindows(notes, groups) {
   }
   return plan;
 }
-function windowAt(plan, time) {
+function windowAt(plan, time, expectedIndex) {
   let index = 0;
-  while (index + 1 < plan.length && plan[index + 1].at <= time) index++;
+  while (index + 1 < plan.length && plan[index + 1].at <= time && (expectedIndex === void 0 || plan[index + 1].forGroup <= expectedIndex)) index++;
   return plan[index].low;
 }
 function noteRect(note, low, positionMs, keys = visibleKeys(low)) {
@@ -229,7 +229,7 @@ var PianoCanvas = class {
   song = null;
   draw(lesson, clock2, now, status2, diagnostics2) {
     const ctx2 = this.canvas.getContext("2d", { alpha: false });
-    const time = clock2.value(now, lesson), low = windowAt(lesson.windows, time), s = clock2.state;
+    const time = clock2.value(now, lesson), s = clock2.state, low = windowAt(lesson.windows, time, s?.mode === "wait" ? s.expectedIndex : void 0);
     if (this.song !== lesson) {
       let end = -Infinity;
       this.prefixEnd = lesson.notes.map((n) => end = Math.max(end, n[1] + n[2]));
