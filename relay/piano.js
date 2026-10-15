@@ -98,7 +98,10 @@ function planWindows(notes, groups) {
       if (next !== low) {
         const gap = groups[i] - heldEnd;
         const at = gap >= 350 ? heldEnd + gap / 2 : groups[i] - 1250;
-        if (plan.length > 1 && at - plan.at(-1).at < 3e3) continue;
+        if (plan.length > 1 && at - plan.at(-1).at < 3e3) {
+          for (const n of current) heldEnd = Math.max(heldEnd, n[1] + n[2]);
+          continue;
+        }
         const safeAt = Math.max(plan.at(-1).at, at);
         if (plan.at(-1).at === safeAt) plan.pop();
         plan.push({ at: safeAt, low: next });
@@ -495,7 +498,7 @@ function paint(now) {
       if (dt > 100) metrics.longFrames100Ms++;
     }
     lastFrame = moving ? now : 0;
-    if (receiver.loaded && clock.state?.songId === receiver.lesson?.songId) {
+    if (!code && receiver.loaded && clock.state?.songId === receiver.lesson?.songId) {
       renderer.draw(receiver.lesson, clock, now, status, diagnostics ? `${metrics.drawFps.toFixed(1)} fps \xB7 CPU max ${metrics.drawCpuMaxMs.toFixed(1)}ms \xB7 ACK ${metrics.acknowledged}` : void 0);
     } else {
       ctx.fillStyle = "#000";
