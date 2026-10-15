@@ -78,7 +78,7 @@ function chooseWindow(pitches, previous, required = []) {
   return whitePitches[best];
 }
 function planWindows(notes, groups) {
-  if (!notes.length) return [{ at: -Infinity, low: 48 }];
+  if (!notes.length) return [{ at: -Infinity, low: 48, forGroup: 0 }];
   const byGroup = groups.map(() => []);
   for (const n of notes) byGroup[n[4]]?.push(n);
   const upcoming = (i) => {
@@ -90,7 +90,7 @@ function planWindows(notes, groups) {
     return pitches;
   };
   let low = chooseWindow(upcoming(0), void 0, byGroup[0]?.map((n) => n[0]) ?? []), heldEnd = 0;
-  const plan = [{ at: -Infinity, low }];
+  const plan = [{ at: -Infinity, low, forGroup: 0 }];
   for (let i = 0; i < groups.length; i++) {
     const current = byGroup[i], high = visibleKeys(low).at(-1).pitch;
     if (current.some((n) => n[0] < low || n[0] > high)) {
@@ -104,7 +104,7 @@ function planWindows(notes, groups) {
         }
         const safeAt = Math.max(plan.at(-1).at, at);
         if (plan.at(-1).at === safeAt) plan.pop();
-        plan.push({ at: safeAt, low: next });
+        plan.push({ at: safeAt, low: next, forGroup: i });
         low = next;
       }
     }
@@ -112,9 +112,9 @@ function planWindows(notes, groups) {
   }
   return plan;
 }
-function windowAt(plan, time) {
+function windowAt(plan, time, expectedIndex) {
   let index = 0;
-  while (index + 1 < plan.length && plan[index + 1].at <= time) index++;
+  while (index + 1 < plan.length && plan[index + 1].at <= time && (expectedIndex === void 0 || plan[index + 1].forGroup <= expectedIndex)) index++;
   return plan[index].low;
 }
 function noteRect(note, low, positionMs, keys = visibleKeys(low)) {
