@@ -15,11 +15,14 @@ Free Render sleeps when idle; first access may take about a minute to wake.
 Neon also suspends idle compute and wakes on demand. Neither affects already
 loaded local playback. Original MIDI files remain the user's backup.
 
-## Deployment (account setup still required)
+## Deployment
 
-The free-storage adapter is implemented and tested locally. The upload/library
-stage is **not deployed** until Neon sign-in/project setup and API deployment
-are complete. The currently published player still offers its starter songs.
+The live API is https://pianolens-midi-library.onrender.com/ and the upload page
+is https://pianolens-standalone.onrender.com/upload.html . The dedicated Neon Free
+project is `plain-tree-69145092` (Frankfurt); Free Render service is
+`srv-db8h7gijnfac73fp23pg`. Reuse these resources; do not create duplicate services.
+Server-only secrets are configured in Render. No paid instance or disk is used.
+The following steps describe reproducible setup, not additional services to create.
 
 1. Sign in to Neon, create a dedicated Free project (Frankfurt/EU where available),
    and obtain its TLS PostgreSQL connection URL. No upgrade or billing details.
@@ -62,8 +65,12 @@ PostgreSQL tests. PostgreSQL SQL executes in PGlite (real PostgreSQL compiled to
 WASM, development dependency only). Tests cover byte-perfect download,
 durability across local database restart, parameterized titles, hashed access,
 permissions, deduplication, quotas, MIDI validation, concurrency and TLS config.
-This verifies SQL/API behavior locally, **not a live Neon deployment, distributed
-lock contention or physical-glasses acceptance**. Those remain deployment tests.
+These automated tests verify SQL/API behavior locally, not distributed lock
+contention or physical-glasses acceptance. The deployed API has additionally
+passed a real hosted-Neon scale upload/readback and access-control checks. Live
+browser playback completed with the uploader closed. Cloud restart acceptance is
+recorded separately in the main project's `validation/library-cloud-*.json`.
+Physical-glasses library and offline-storage acceptance remain outstanding.
 
 ## Data handling and limits
 
