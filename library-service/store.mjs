@@ -1,6 +1,7 @@
 import {DatabaseSync} from 'node:sqlite';
 import {randomBytes,createHash,timingSafeEqual} from 'node:crypto';
-export class HttpError extends Error{constructor(status,message){super(message);this.status=status;}}
+import {HttpError} from './errors.mjs';
+export {HttpError} from './errors.mjs';
 const id=()=>randomBytes(16).toString('hex'),key=()=>randomBytes(32).toString('hex');
 const digest=value=>createHash('sha256').update(value).digest();
 export class LibraryStore{
