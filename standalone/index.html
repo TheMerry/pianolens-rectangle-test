@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="mrbd-web-app-capable" content="yes"><meta name="description" content="Standalone PianoLens piano playback for Meta Ray-Ban Display. No phone pairing required.">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'unsafe-inline'; connect-src 'self'; worker-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<title>PianoLens — Standalone</title>
+<style>
+*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;background:#000;color:#fff;font:18px system-ui,sans-serif}body{display:grid;place-items:center}main{position:relative;width:min(100vw,100vh);height:min(100vw,100vh)}canvas{width:100%;height:100%;display:block;background:#000}#menu{position:absolute;inset:0;background:#000;padding:4%;overflow:auto}#menu[hidden]{display:none}h1{font-size:26px;margin:0 0 8px}p{font-size:16px;margin:8px 0 14px;color:#ddd}#songs{display:grid;grid-template-columns:1fr 1fr;gap:8px}.controls{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px}button{min-height:52px;background:#000;color:#fff;border:1px solid #aaa;border-radius:7px;padding:8px;font:inherit;cursor:pointer}button:focus-visible,canvas:focus-visible{outline:3px solid #ffcc66;outline-offset:-3px}button:disabled{color:#777;border-color:#444}small{display:block;margin-top:14px;font-size:14px;color:#bbb}
+</style></head><body><main>
+<canvas id="display" width="600" height="600" tabindex="0" aria-label="PianoLens falling notes. Select to pause and open playback controls."></canvas>
+<section id="menu" aria-label="PianoLens playback controls"><h1>PianoLens · Standalone</h1>
+<p id="status" role="status">Loading songs…</p><div id="songs" aria-label="Song catalogue"></div>
+<div class="controls"><button id="play" disabled>Play</button><button id="restart">Restart</button><button id="speed">Speed 100%</button><button id="repeat" aria-pressed="false">Repeat off</button></div>
+<small>Choose a song, then Play. Select during playback pauses and opens controls. Use directional gestures to move between buttons.<br>Starter catalogue · visual playback · no pairing needed.</small></section>
+</main><script type="module" src="./app.js"></script></body></html>
