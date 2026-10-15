@@ -1,0 +1,18 @@
+# Template only. No paid instance or disk. Secrets are configured in Render.
+services:
+  - type: web
+    name: pianolens-midi-library
+    runtime: node
+    plan: free
+    region: frankfurt
+    rootDir: library-service
+    buildCommand: npm ci --include=dev && npm test && npm prune --omit=dev
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_VERSION
+        value: 24.20.0
+      - key: DATABASE_URL
+        sync: false
+      - key: PIANOLENS_CREATE_KEY
+        sync: false
