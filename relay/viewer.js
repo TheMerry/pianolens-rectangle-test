@@ -51,7 +51,8 @@ function frame(now){
   if(now-lastReport>=1000){canvas.dataset.connection=JSON.stringify(report);lastReport=now;}
   if(next!==bucket&&(dirty||clock.playing)){
     const start=performance.now();ctx.fillStyle='#000';ctx.fillRect(0,0,600,600);
-    const r=rectangleAt(clock.value(now));ctx.fillStyle='#fff';ctx.fillRect(r.x,r.y,r.width,r.height);
+    // Keep pairing text clear; the rectangle appears when the phone is paired.
+    if(paired){const r=rectangleAt(clock.value(now));ctx.fillStyle='#fff';ctx.fillRect(r.x,r.y,r.width,r.height);}
     if(overlay||!paired){ctx.textAlign='center';ctx.fillStyle='#fff';ctx.font='22px sans-serif';ctx.fillText(status,300,90,560);
       if(pairCode){ctx.font='bold 48px monospace';ctx.fillText(pairCode.slice(0,4)+'–'+pairCode.slice(4),300,165);ctx.font='20px sans-serif';ctx.fillText('PianoLens phone app → Internet connection',300,210,560);}
       else if(paired){ctx.font='18px sans-serif';ctx.fillText(`Received ${report.received} · revision ${report.lastRevision??'—'} · RTT ${report.lastPingRoundTripMs?.toFixed(0)??'—'} ms`,300,140,560);}
