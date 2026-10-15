@@ -37,8 +37,21 @@ test('viewer cannot submit playback commands; unrelated rooms cannot receive the
 test('health and asset routes expose no room credentials and reject other files',async()=>{
   const relay=await createRelay();try{
     const base=relay.url.replace('ws:','http:').replace('/rectangle','');
-    assert.deepEqual(await (await fetch(base+'/health')).json(),{ok:true,build:'rectangle-relay-B2'});
+    assert.deepEqual(await (await fetch(base+'/health')).json(),{ok:true,build:'hybrid-piano-C1'});
     const page=await fetch(base+'/');assert.equal(page.status,200);assert.equal(page.headers.get('cache-control'),'no-store');
     assert.equal((await fetch(base+'/server.mjs')).status,404);
+  }finally{await relay.close();}
+});
+test('piano room forwards bounded song/state packets and isolates rectangle controllers',async()=>{
+  const relay=await createRelay();try{
+    const viewer=await client(relay.url);viewer.send({type:'create',kind:'piano'});const created=await viewer.next();
+    const wrong=await client(relay.url);wrong.send({type:'join',code:created.code});assert.equal(await closed(wrong.ws),4003);
+    const phone=await client(relay.url);phone.send({type:'join',kind:'piano',code:created.code});await phone.next();await phone.next();await viewer.next();
+    const packets=[{type:'loadSong',v:2,songId:'test',packetId:1,title:'Scale',count:1,groupCount:1,endMs:500},
+      {type:'songChunk',songId:'test',packetId:2,offset:0,notes:[[60,0,500,1,0]]},
+      {type:'lessonState',v:2,songId:'test',packetId:3,epoch:1,revision:1,positionMs:-2000,speed:.75,playing:true,waiting:false,mode:'wait',expectedIndex:0,confirmedThrough:-1,sentAt:Date.now(),showKeyboard:true}];
+    for(const packet of packets){phone.send(packet);assert.deepEqual(await viewer.next(),packet);viewer.send({type:'lessonAck',packetId:packet.packetId});assert.equal((await phone.next()).packetId,packet.packetId);}
+    phone.send({...packets[2],expectedIndex:1,confirmedThrough:-1,packetId:4});assert.equal(await closed(phone.ws),4004);
+    const base=relay.url.replace('ws:','http:').replace('/rectangle','');assert.equal((await fetch(base+'/piano')).status,200);assert.equal((await fetch(base+'/piano.js')).status,200);
   }finally{await relay.close();}
 });
