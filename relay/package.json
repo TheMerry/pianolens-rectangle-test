@@ -1,0 +1,1 @@
+{"name":"pianolens-rectangle-relay","version":"0.1.0","private":true,"type":"module","engines":{"node":">=22 <25"},"scripts":{"start":"node server.mjs","test":"node --test relay.test.mjs"},"dependencies":{"ws":"8.22.0"}}
