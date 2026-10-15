@@ -346,6 +346,7 @@ var status = "Connecting\u2026";
 var paired = false;
 var retry;
 var deadline;
+var pairExpiry;
 var attempt = 0;
 var raf = 0;
 var lastDraw = -Infinity;
@@ -373,6 +374,7 @@ var clearCredentials = () => {
 };
 function mark(value) {
   status = value;
+  canvas.setAttribute("aria-label", `PianoLens piano lesson. ${value}${code ? ". Pairing code " + code.slice(0, 4) + "-" + code.slice(4) : ""}. Select for diagnostics or new pairing.`);
   dirty = true;
   wake();
 }
@@ -394,7 +396,13 @@ function connect() {
     if (socket === ws) ws.close();
   }, 7e4);
   ws.onopen = () => {
-    if (socket === ws) write(credentials ? { type: "reconnect", role: "viewer", ...credentials } : { type: "create", kind: "piano" });
+    if (socket === ws) {
+      clearTimeout(deadline);
+      deadline = setTimeout(() => {
+        if (socket === ws) ws.close();
+      }, 1e4);
+      write(credentials ? { type: "reconnect", role: "viewer", ...credentials } : { type: "create", kind: "piano" });
+    }
   };
   ws.onmessage = ({ data }) => {
     if (socket !== ws || typeof data !== "string" || data.length > 4096) return;
@@ -409,6 +417,10 @@ function connect() {
       code = m.code;
       attempt = 0;
       clearTimeout(deadline);
+      clearTimeout(pairExpiry);
+      pairExpiry = setTimeout(() => {
+        if (!paired) freshPair();
+      }, Math.max(1e3, Math.min(12e4, m.expiresInMs || 12e4)));
       try {
         localStorage.setItem(storageKey, JSON.stringify(credentials));
       } catch {
@@ -422,6 +434,7 @@ function connect() {
     } else if (m.type === "paired") {
       paired = true;
       code = null;
+      clearTimeout(pairExpiry);
       offset = null;
       lastState = performance.now();
       mark("Restoring lesson\u2026");
@@ -469,6 +482,7 @@ function connect() {
     socket = null;
     clearTimeout(deadline);
     paired = false;
+    code = null;
     metrics.lastCloseCode = closeCode;
     freeze();
     if (closeCode === 4008) {
@@ -530,6 +544,7 @@ function wake() {
 function suspend() {
   clearTimeout(retry);
   clearTimeout(deadline);
+  clearTimeout(pairExpiry);
   const old = socket;
   socket = null;
   old?.close(1e3, "Viewer hidden");
@@ -537,18 +552,22 @@ function suspend() {
   if (raf) cancelAnimationFrame(raf);
   raf = 0;
 }
+function freshPair() {
+  clearCredentials();
+  code = null;
+  clearTimeout(pairExpiry);
+  clearTimeout(retry);
+  clearTimeout(deadline);
+  if (socket) {
+    const old = socket;
+    socket = null;
+    old.close();
+  }
+  connect();
+}
 canvas.addEventListener("click", () => {
-  if (!paired) {
-    clearCredentials();
-    code = null;
-    if (socket) {
-      const old = socket;
-      socket = null;
-      old.close();
-    }
-    clearTimeout(retry);
-    connect();
-  } else {
+  if (!paired) freshPair();
+  else {
     diagnostics = !diagnostics;
     dirty = true;
     wake();
